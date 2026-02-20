@@ -1,83 +1,59 @@
-import express from "express";
-import mongoose from "mongoose";
-import path from "path";
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
 const app = express();
 app.use(express.json());
-app.use(express.static("public"));
+app.use(cors());
+app.use(express.static("public")); // if your html is in public folder
 
-// --- Connect to MongoDB Atlas ---
-const mongoURI = "mongodb+srv://ebukaanyemachill9_db_mer:joy5RIFZWLFC35WL@cluster0.bcrir9p.mongodb.net/vcfcollector?retryWrites=true&w=majority";
+// ✅ MongoDB connection
+mongoose.connect("mongodb+srv://ebukaanyemachill9_db_mer:joy5RIFZWLFC35WL@cluster0.bcrir9p.mongodb.net/vcfcollector?retryWrites=true&w=majority")
+.then(() => console.log("✅ MongoDB connected"))
+.catch(err => console.log("❌ MongoDB error:", err));
 
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.log("MongoDB connection error:", err));
-
-// --- Schema ---
-const contactSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  phone: { type: String, required: true, unique: true }
+// ✅ Schema
+const ContactSchema = new mongoose.Schema({
+  number: { type: String, unique: true }
 });
 
-const Contact = mongoose.model("Contact", contactSchema);
+const Contact = mongoose.model("Contact", ContactSchema);
 
-// --- Target count ---
-const TARGET = 500;
-
-// --- Submit contact ---
+// ✅ Save contact
 app.post("/save", async (req, res) => {
-  const { name, phone } = req.body;
-  if(!name || !phone) return res.json({ error: "Fill all fields" });
-
   try {
+    const { number } = req.body;
+
+    if (!number) {
+      return res.json({ success: false, msg: "No number" });
+    }
+
+    const exists = await Contact.findOne({ number });
+
+    if (exists) {
+      return res.json({ success: false, msg: "Duplicate" });
+    }
+
+    await Contact.create({ number });
+
     const count = await Contact.countDocuments();
-    if(count >= TARGET) return res.json({ target: TARGET, count, ready: true });
 
-    // Prevent duplicates
-    const existing = await Contact.findOne({ phone });
-    if(existing) return res.json({ error: "Number already submitted" });
-
-    // Save new contact
-    await Contact.create({ name, phone });
-
-    const newCount = await Contact.countDocuments();
-    res.json({ target: TARGET, count: newCount, ready: newCount >= TARGET });
-  } catch(err) {
-    console.log(err);
-    res.json({ error: err.message });
-  }
-});
-
-// --- Get current counts ---
-app.get("/count", async (req, res) => {
-  try {
-    const count = await Contact.countDocuments();
-    res.json({ target: TARGET, count, ready: count >= TARGET });
-  } catch(err) {
-    res.json({ error: err.message });
-  }
-});
-
-// --- Download VCF ---
-app.get("/download", async (req, res) => {
-  try {
-    const contacts = await Contact.find();
-    let vcf = "";
-    contacts.forEach(c => {
-      vcf += `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nTEL:${c.phone}\nEND:VCARD\n`;
+    res.json({
+      success: true,
+      count: count
     });
-    res.setHeader("Content-Type", "text/vcard");
-    res.setHeader("Content-Disposition", "attachment; filename=contacts.vcf");
-    res.send(vcf);
-  } catch(err) {
-    res.send("Error fetching contacts");
+
+  } catch (err) {
+    console.log(err);
+    res.json({ success: false });
   }
 });
 
-// --- Serve frontend ---
-app.get("/", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "public/index.html"));
+// ✅ Get stats
+app.get("/stats", async (req, res) => {
+  const count = await Contact.countDocuments();
+  res.json({ count });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log("🚀 Server running on", PORT));

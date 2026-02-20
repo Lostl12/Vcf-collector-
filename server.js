@@ -1,10 +1,11 @@
+// server.js
 import express from "express";
 import fs from "fs";
 import path from "path";
 
 const app = express();
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static("public")); // serve HTML page
 
 const TARGET = 500;
 const DATA_FILE = path.join(process.cwd(), "contacts.json");
@@ -37,6 +38,8 @@ app.post("/save", (req, res) => {
   }
 
   const ready = contacts.length >= TARGET;
+
+  // ✅ Always return target & count to frontend
   res.json({ target: TARGET, count: contacts.length, ready });
 });
 

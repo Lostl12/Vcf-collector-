@@ -1,128 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VCF Collector</title>
-
-<style>
-body {background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding:30px;}
-input {width:90%;padding:12px;border-radius:10px;border:none;margin:8px;}
-button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor:pointer;}
-.save {background:#ff4081;color:white;}
-.download {background:#00e676;color:black;margin-top:15px;}
-.card {background:#1a1a1a;padding:20px;border-radius:15px;margin-top:20px;display:inline-block;}
-#circle-container {position:relative;width:150px;height:150px;margin:20px auto;}
-#circle-bg, #circle-fill {stroke-width:15;fill:none;transition: stroke-dashoffset 1s ease, stroke 1s ease;}
-#circle-bg {stroke:#444;}
-#circle-fill {transform:rotate(-90deg);transform-origin:center;}
-#circle-text {position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-weight:bold;font-size:20px;}
-#circle-title {margin-top:10px;font-size:18px;opacity:0.8;}
-#circle-powered {opacity:0.6;margin-top:5px;font-size:14px;}
-#message {margin-top:15px;font-size:16px;color:#00e676;opacity:0;transition: opacity 0.5s;}
-</style>
+  <meta charset="UTF-8">
+  <title>VCF Collector</title>
+  <style>
+    /* simple progress circle */
+    #progress-container {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 10px solid #eee;
+      position: relative;
+    }
+    #progress {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: conic-gradient(#4caf50 0% 0%, transparent 0% 100%);
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  </style>
 </head>
-
 <body>
+  <h1>VCF Collector</h1>
+  <p>Target: <span id="target">500</span></p>
+  <p>Contacts: <span id="count">0</span></p>
+  <p>Remaining: <span id="remaining">500</span></p>
 
-<h2>Join Contact List</h2>
+  <div id="progress-container">
+    <div id="progress"></div>
+  </div>
 
-<input id="name" placeholder="Your name">
-<input id="phone" placeholder="Phone number">
-<br>
-<button class="save" onclick="submitContact()">Submit</button>
+  <input type="text" id="numberInput" placeholder="Enter your number">
+  <button onclick="submitContact()">Submit</button>
 
-<div id="box"></div>
+  <button id="downloadBtn" style="display:none">Download VCF</button>
 
-<div id="circle-container" class="card">
-  <svg width="150" height="150">
-    <circle id="circle-bg" cx="75" cy="75" r="60"/>
-    <circle id="circle-fill" cx="75" cy="75" r="60" stroke-dasharray="377" stroke-dashoffset="377"/>
-  </svg>
-  <div id="circle-text">0 / 500</div>
-  <div id="circle-title">VCF Collector</div>
-  <div id="circle-powered">Powered by 𝑷𝑹𝑬𝑪𝑰𝑶𝑼𝑺 x♡</div>
-</div>
-
-<div id="message">Contacts submitted successfully!</div>
-
-<script>
-const TARGET = 500;
-
-function getColor(percent) {
-  if(percent < 50) {
-    const g = Math.floor((percent / 50) * 255);
-    return `rgb(255, ${g}, 0)`;
-  } else {
-    const r = Math.floor(255 - ((percent - 50) / 50) * 255);
-    return `rgb(${r}, 255, 0)`;
-  }
-}
-
-// Fetch count only
-async function fetchCount() {
-  try {
-    const res = await fetch("/count");
-    const data = await res.json();
-    updateUI(data);
-  } catch (err) {
-    console.error("Cannot fetch count", err);
-  }
-}
-
-async function submitContact() {
-  const name = document.getElementById("name").value;
-  const phone = document.getElementById("phone").value;
-  if (!name || !phone) return alert("Fill all fields");
-
-  const res = await fetch("/save", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({name, phone})
-  });
-  const data = await res.json();
-  if(data.error) return alert(data.error);
-
-  // Clear inputs
-  document.getElementById("name").value = "";
-  document.getElementById("phone").value = "";
-
-  // Show success message
-  const msg = document.getElementById("message");
-  msg.style.opacity = 1;
-
-  // Update UI
-  updateUI(data);
-
-  // Redirect to WhatsApp group immediately
-  setTimeout(() => {
-    window.location.href = "https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg?mode=gi_t";
-  }, 500);
-}
-
-function updateUI(data) {
-  const target = data.target || TARGET;
-  const count = data.count || 0;
-  const remaining = target - count;
-
-  document.getElementById("box").innerHTML = `
-    <p>Target: ${target}</p>
-    <p>Contacts: ${count}</p>
-    <p>Remaining: ${remaining > 0 ? remaining : 0}</p>
-    ${data.ready ? '<a href="/download"><button class="download">Download Contacts</button></a>' : ''}
-  `;
-
-  const percent = Math.min(100, (count / target) * 100);
-  const dashoffset = 377 - (377 * percent / 100);
-  const circle = document.getElementById("circle-fill");
-  circle.style.strokeDashoffset = dashoffset;
-  circle.style.stroke = getColor(percent);
-  document.getElementById("circle-text").innerText = `${count} / ${target}`;
-}
-
-// Refresh counts every 5 seconds
-setInterval(fetchCount, 5000);
-fetchCount();
-</script>
-
+  <script src="script.js"></script>
 </body>
 </html>

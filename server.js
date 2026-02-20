@@ -1,66 +1,90 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
+const fetch = require("node-fetch");
 
 const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
 const TARGET = 500;
-const FILE = path.join(__dirname, "contacts_backup.json");
 
-// memory storage
-let contacts = [];
+const SUPABASE_URL = "https://segmoflngzygrmacwmdi.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlZ21vZmxuZ3p5Z3JtYWN3bWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1ODE1MjQsImV4cCI6MjA4NzE1NzUyNH0.fsK3dRt6qv0LUNg3kQ99w6Y2EHHtac-PZ5W52BxnBiI";
 
-// load backup if exists
-if (fs.existsSync(FILE)) {
+// ---------- SAVE CONTACT ----------
+app.post("/save", async (req, res) => {
+  let number = req.body.number?.trim();
+  if (!number) return res.json({ success: false });
+
   try {
-    contacts = JSON.parse(fs.readFileSync(FILE));
-  } catch {
-    contacts = [];
-  }
-}
+    // check duplicate
+    const check = await fetch(
+      `${SUPABASE_URL}/rest/v1/contacts?number=eq.${number}`,
+      {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`
+        }
+      }
+    );
 
-// save backup
-function backup() {
-  fs.writeFileSync(FILE, JSON.stringify(contacts, null, 2));
-}
+    const existing = await check.json();
 
-// save number
-app.post("/save", (req, res) => {
-  let number = req.body.number;
+    if (existing.length > 0) {
+      const stats = await getStats();
+      return res.json({
+        success: false,
+        duplicate: true,
+        ...stats
+      });
+    }
 
-  if (!number) {
-    return res.json({ success: false });
-  }
-
-  number = number.trim();
-
-  if (contacts.includes(number)) {
-    return res.json({
-      success: false,
-      duplicate: true,
-      count: contacts.length,
-      remaining: TARGET - contacts.length
+    // insert new contact
+    await fetch(`${SUPABASE_URL}/rest/v1/contacts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`
+      },
+      body: JSON.stringify({ number })
     });
+
+    const stats = await getStats();
+
+    res.json({
+      success: true,
+      ...stats
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.json({ success: false });
   }
-
-  contacts.push(number);
-  backup();
-
-  res.json({
-    success: true,
-    count: contacts.length,
-    remaining: TARGET - contacts.length
-  });
 });
 
-// stats
-app.get("/stats", (req, res) => {
-  res.json({
-    count: contacts.length,
-    remaining: TARGET - contacts.length
-  });
+// ---------- GET STATS ----------
+async function getStats() {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/contacts?select=count`,
+    {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: "count=exact"
+      }
+    }
+  );
+
+  const total = r.headers.get("content-range").split("/")[1];
+
+  return {
+    count: Number(total),
+    remaining: TARGET - Number(total)
+  };
+}
+
+app.get("/stats", async (req, res) => {
+  res.json(await getStats());
 });
 
 app.listen(3000, () => console.log("Server running"));

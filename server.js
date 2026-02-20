@@ -1,57 +1,52 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const cors = require("cors");
 
 const app = express();
 app.use(express.json());
-app.use(cors());
 app.use(express.static("public"));
 
-const FILE_PATH = path.join(__dirname, "db", "contacts.json");
 const TARGET = 500;
+const FILE = path.join(__dirname, "contacts_backup.json");
 
-// ensure file exists
-if (!fs.existsSync(FILE_PATH)) {
-  fs.writeFileSync(FILE_PATH, "[]");
+// memory storage
+let contacts = [];
+
+// load backup if exists
+if (fs.existsSync(FILE)) {
+  try {
+    contacts = JSON.parse(fs.readFileSync(FILE));
+  } catch {
+    contacts = [];
+  }
 }
 
-// read contacts
-function readContacts() {
-  const data = fs.readFileSync(FILE_PATH);
-  return JSON.parse(data);
-}
-
-// save contacts
-function saveContacts(data) {
-  fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2));
+// save backup
+function backup() {
+  fs.writeFileSync(FILE, JSON.stringify(contacts, null, 2));
 }
 
 // save number
 app.post("/save", (req, res) => {
-  const { number } = req.body;
+  let number = req.body.number;
 
   if (!number) {
-    return res.json({ success: false, msg: "No number" });
+    return res.json({ success: false });
   }
 
-  let contacts = readContacts();
+  number = number.trim();
 
-  // remove spaces
-  const cleanNumber = number.trim();
-
-  // prevent duplicate
-  if (contacts.includes(cleanNumber)) {
+  if (contacts.includes(number)) {
     return res.json({
       success: false,
-      msg: "Duplicate",
+      duplicate: true,
       count: contacts.length,
       remaining: TARGET - contacts.length
     });
   }
 
-  contacts.push(cleanNumber);
-  saveContacts(contacts);
+  contacts.push(number);
+  backup();
 
   res.json({
     success: true,
@@ -60,14 +55,12 @@ app.post("/save", (req, res) => {
   });
 });
 
-// stats route
+// stats
 app.get("/stats", (req, res) => {
-  const contacts = readContacts();
   res.json({
     count: contacts.length,
     remaining: TARGET - contacts.length
   });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running on", PORT));
+app.listen(3000, () => console.log("Server running"));

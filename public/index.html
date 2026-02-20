@@ -1,1 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact Collector</title>
 
+<style>
+body {background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding:30px}
+input {width:90%;padding:12px;border-radius:10px;border:none;margin:8px}
+button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor:pointer}
+.save {background:#ff4081;color:white}
+.download {background:#00e676;color:black;margin-top:15px}
+.card {background:#1a1a1a;padding:20px;border-radius:15px;margin-top:20px}
+</style>
+</head>
+
+<body>
+
+<h2>Join Contact List</h2>
+
+<input id="name" placeholder="Your name">
+<input id="phone" placeholder="Phone number">
+<br>
+<button class="save" onclick="save()">Submit</button>
+
+<div id="box"></div>
+
+<script>
+async function save() {
+  const name = document.getElementById("name").value;
+  const phone = document.getElementById("phone").value;
+
+  const res = await fetch("/save", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({name, phone})
+  });
+
+  const data = await res.json();
+
+  if(data.error) return alert(data.error);
+
+  let html = `
+    <div class="card">
+      <p>${data.count} / ${data.target} contacts collected</p>
+  `;
+
+  if(data.ready){
+    html += `<a href="/download"><button class="download">Download Contacts</button></a>`;
+  }
+
+  html += "</div>";
+  document.getElementById("box").innerHTML = html;
+}
+</script>
+
+</body>
+</html>

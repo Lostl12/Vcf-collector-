@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(express.static("public"));
 
 const DB = "contacts.json";
-const TARGET = 20; // set your target number
+const TARGET = 500; // target is now 500 contacts
 
 // ensure contacts.json exists
 await fs.ensureFile(DB);
@@ -31,10 +31,13 @@ app.post("/save", async (req, res) => {
   contacts.push({ name, phone });
   await fs.writeJson(DB, contacts, { spaces: 2 });
 
+  const percent = Math.min(100, Math.floor((contacts.length / TARGET) * 100));
+
   res.json({
     count: contacts.length,
     target: TARGET,
-    ready: contacts.length >= TARGET
+    ready: contacts.length >= TARGET,
+    progress: percent
   });
 });
 

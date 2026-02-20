@@ -1,68 +1,73 @@
 import express from "express";
-import sqlite3 from "sqlite3";
+import mongoose from "mongoose";
 import path from "path";
 
 const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
-// SQLite setup
-const dbPath = path.join(process.cwd(), "database.db");
-const db = new sqlite3.Database(dbPath);
+// --- Connect to MongoDB ---
+const mongoURI = "mongodb+srv://ebukaanyemachill9_db_mer:joy5RIFZWLFC35WL@cluster0.bcrir9p.mongodb.net/vcfcollector?retryWrites=true&w=majority";
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log(err));
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS contacts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    phone TEXT NOT NULL
-  )`);
+// --- Schema ---
+const contactSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  phone: { type: String, required: true, unique: true }
 });
+
+const Contact = mongoose.model("Contact", contactSchema);
 
 const TARGET = 500;
 
-// Submit contact
-app.post("/save", (req, res) => {
+// --- Submit contact ---
+app.post("/save", async (req, res) => {
   const { name, phone } = req.body;
   if(!name || !phone) return res.json({ error: "Fill all fields" });
 
-  db.get("SELECT COUNT(*) AS count FROM contacts", [], (err, row) => {
-    if(err) return res.json({ error: err.message });
+  try {
+    const count = await Contact.countDocuments();
+    if(count >= TARGET) return res.json({ target: TARGET, count, ready: true });
 
-    if(row.count < TARGET) {
-      db.run("INSERT INTO contacts (name, phone) VALUES (?, ?)", [name, phone], function(err2){
-        if(err2) return res.json({ error: err2.message });
+    // Prevent duplicate
+    const existing = await Contact.findOne({ phone });
+    if(existing) return res.json({ error: "Number already submitted" });
 
-        const ready = row.count + 1 >= TARGET;
-        res.json({ target: TARGET, count: row.count + 1, ready });
-      });
-    } else {
-      res.json({ target: TARGET, count: row.count, ready: true });
-    }
-  });
+    await Contact.create({ name, phone });
+
+    const newCount = await Contact.countDocuments();
+    res.json({ target: TARGET, count: newCount, ready: newCount >= TARGET });
+  } catch(err) {
+    res.json({ error: err.message });
+  }
 });
 
-// Get current count (for circle/progress)
-app.get("/count", (req, res) => {
-  db.get("SELECT COUNT(*) AS count FROM contacts", [], (err, row) => {
-    if(err) return res.json({ error: err.message });
-    res.json({ target: TARGET, count: row.count, ready: row.count >= TARGET });
-  });
+// --- Get current count ---
+app.get("/count", async (req, res) => {
+  try {
+    const count = await Contact.countDocuments();
+    res.json({ target: TARGET, count, ready: count >= TARGET });
+  } catch(err) {
+    res.json({ error: err.message });
+  }
 });
 
-// Download VCF
-app.get("/download", (req, res) => {
-  db.all("SELECT * FROM contacts", [], (err, rows) => {
-    if(err) return res.send("Error fetching contacts");
-
+// --- Download VCF ---
+app.get("/download", async (req, res) => {
+  try {
+    const contacts = await Contact.find();
     let vcf = "";
-    rows.forEach(c => {
+    contacts.forEach(c => {
       vcf += `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nTEL:${c.phone}\nEND:VCARD\n`;
     });
-
     res.setHeader("Content-Type", "text/vcard");
     res.setHeader("Content-Disposition", "attachment; filename=contacts.vcf");
     res.send(vcf);
-  });
+  } catch(err) {
+    res.send("Error fetching contacts");
+  }
 });
 
 const PORT = process.env.PORT || 3000;

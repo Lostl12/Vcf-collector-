@@ -58,14 +58,15 @@ function getColor(percent) {
   }
 }
 
+// Fetch count only
 async function fetchCount() {
-  const res = await fetch("/save", { 
-    method: "POST", 
-    headers: {"Content-Type":"application/json"}, 
-    body: JSON.stringify({name:"",phone:""}) 
-  });
-  const data = await res.json();
-  updateUI(data);
+  try {
+    const res = await fetch("/count");
+    const data = await res.json();
+    updateUI(data);
+  } catch (err) {
+    console.error("Cannot fetch count", err);
+  }
 }
 
 async function submitContact() {
@@ -85,17 +86,17 @@ async function submitContact() {
   document.getElementById("name").value = "";
   document.getElementById("phone").value = "";
 
-  // Show success message briefly
+  // Show success message
   const msg = document.getElementById("message");
   msg.style.opacity = 1;
 
-  // Update circle and counters
+  // Update UI
   updateUI(data);
 
-  // ✅ Immediately redirect to WhatsApp group
+  // Redirect to WhatsApp group immediately
   setTimeout(() => {
     window.location.href = "https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg?mode=gi_t";
-  }, 500); // 0.5s delay for smooth animation
+  }, 500);
 }
 
 function updateUI(data) {
@@ -118,7 +119,7 @@ function updateUI(data) {
   document.getElementById("circle-text").innerText = `${count} / ${target}`;
 }
 
-// Auto-refresh counters every 5s
+// Refresh counts every 5 seconds
 setInterval(fetchCount, 5000);
 fetchCount();
 </script>

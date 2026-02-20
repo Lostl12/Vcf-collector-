@@ -10,11 +10,9 @@ if (!cached) {
 
 async function connectDB() {
   if (cached.conn) return cached.conn;
-
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGO_URI).then(m => m);
+    cached.promise = mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true }).then(m => m);
   }
-
   cached.conn = await cached.promise;
   return cached.conn;
 }
@@ -28,11 +26,10 @@ const Contact = mongoose.models.Contact || mongoose.model("Contact", ContactSche
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  await connectDB();
-
   const { number } = req.body;
-
   if (!number) return res.json({ success: false, message: "No number provided" });
+
+  await connectDB();
 
   try {
     await Contact.create({ number });

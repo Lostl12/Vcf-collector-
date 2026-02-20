@@ -19,8 +19,6 @@ button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor
 #circle-title {margin-top:10px;font-size:18px;opacity:0.8;}
 #circle-powered {opacity:0.6;margin-top:5px;font-size:14px;}
 #message {margin-top:15px;font-size:16px;color:#00e676;opacity:0;transition: opacity 0.5s;}
-#group-link {margin-top:10px;font-size:16px;display:none;opacity:0;transform:translateY(-20px);transition: all 0.8s ease;}
-#group-link.show {display:block;opacity:1;transform:translateY(0);}
 </style>
 </head>
 
@@ -46,16 +44,10 @@ button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor
 </div>
 
 <div id="message">Contacts submitted successfully!</div>
-<div id="group-link">
-  <a href="https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg?mode=gi_t" target="_blank">
-    Join our WhatsApp group to get your VCF
-  </a>
-</div>
 
 <script>
 const TARGET = 500;
 
-// color red → yellow → green
 function getColor(percent) {
   if(percent < 50) {
     const g = Math.floor((percent / 50) * 255);
@@ -66,7 +58,6 @@ function getColor(percent) {
   }
 }
 
-// fetch current count
 async function fetchCount() {
   const res = await fetch("/save", { 
     method: "POST", 
@@ -77,11 +68,9 @@ async function fetchCount() {
   updateUI(data);
 }
 
-// submit contact
 async function submitContact() {
   const name = document.getElementById("name").value;
   const phone = document.getElementById("phone").value;
-
   if (!name || !phone) return alert("Fill all fields");
 
   const res = await fetch("/save", {
@@ -92,47 +81,44 @@ async function submitContact() {
   const data = await res.json();
   if(data.error) return alert(data.error);
 
+  // Clear inputs
   document.getElementById("name").value = "";
   document.getElementById("phone").value = "";
 
-  // show success message
+  // Show success message briefly
   const msg = document.getElementById("message");
   msg.style.opacity = 1;
 
-  // show animated group link after 3 seconds
-  const link = document.getElementById("group-link");
-  link.classList.remove("show"); // reset animation
-  setTimeout(() => {
-    link.classList.add("show");
-  }, 3000);
-
+  // Update circle and counters
   updateUI(data);
+
+  // ✅ Immediately redirect to WhatsApp group
+  setTimeout(() => {
+    window.location.href = "https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg?mode=gi_t";
+  }, 500); // 0.5s delay for smooth animation
 }
 
-// update circle and counters
 function updateUI(data) {
-  const remaining = data.target - data.count;
+  const target = data.target || TARGET;
+  const count = data.count || 0;
+  const remaining = target - count;
 
-  let html = `
-    <p>Target: ${data.target}</p>
-    <p>Contacts: ${data.count}</p>
+  document.getElementById("box").innerHTML = `
+    <p>Target: ${target}</p>
+    <p>Contacts: ${count}</p>
     <p>Remaining: ${remaining > 0 ? remaining : 0}</p>
+    ${data.ready ? '<a href="/download"><button class="download">Download Contacts</button></a>' : ''}
   `;
 
-  if(data.ready){
-    html += `<a href="/download"><button class="download">Download Contacts</button></a>`;
-  }
-
-  document.getElementById("box").innerHTML = html;
-
-  const percent = Math.min(100, (data.count / data.target) * 100);
+  const percent = Math.min(100, (count / target) * 100);
   const dashoffset = 377 - (377 * percent / 100);
   const circle = document.getElementById("circle-fill");
   circle.style.strokeDashoffset = dashoffset;
   circle.style.stroke = getColor(percent);
-  document.getElementById("circle-text").innerText = `${data.count} / ${data.target}`;
+  document.getElementById("circle-text").innerText = `${count} / ${target}`;
 }
 
+// Auto-refresh counters every 5s
 setInterval(fetchCount, 5000);
 fetchCount();
 </script>

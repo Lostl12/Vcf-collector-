@@ -2,8 +2,7 @@ const TARGET = 500;
 
 async function getStats() {
   const res = await fetch("/api/stats");
-  const data = await res.json();
-  return data;
+  return await res.json();
 }
 
 async function updateUI() {
@@ -45,5 +44,5 @@ async function submitContact() {
   updateUI();
 }
 
-// update on page load
+// update counts on page load
 updateUI();

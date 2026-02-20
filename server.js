@@ -1,90 +1,65 @@
 const express = require("express");
-const fetch = require("node-fetch");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
 const app = express();
 app.use(express.json());
-app.use(express.static("public"));
+app.use(cors()); // optional if you fetch from frontend on same domain
 
 const TARGET = 500;
 
-const SUPABASE_URL = "https://segmoflngzygrmacwmdi.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlZ21vZmxuZ3p5Z3JtYWN3bWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1ODE1MjQsImV4cCI6MjA4NzE1NzUyNH0.fsK3dRt6qv0LUNg3kQ99w6Y2EHHtac-PZ5W52BxnBiI";
+// MongoDB Atlas connection
+const MONGO_URI = "mongodb+srv://ebukaanyemachill9_db_mer:joy5RIFZWLFC35WL@cluster0.bcrir9p.mongodb.net/vcfcollector?retryWrites=true&w=majority";
 
-// ---------- SAVE CONTACT ----------
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+  if (cached.conn) return cached.conn;
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+  }
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
+
+// Contact model
+const ContactSchema = new mongoose.Schema({
+  number: { type: String, unique: true }
+});
+
+const Contact = mongoose.models.Contact || mongoose.model("Contact", ContactSchema);
+
+// ---------- Save contact ----------
 app.post("/save", async (req, res) => {
-  let number = req.body.number?.trim();
-  if (!number) return res.json({ success: false });
+  const { number } = req.body;
+  if (!number) return res.json({ success: false, message: "No number provided" });
+
+  await connectDB();
 
   try {
-    // check duplicate
-    const check = await fetch(
-      `${SUPABASE_URL}/rest/v1/contacts?number=eq.${number}`,
-      {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`
-        }
-      }
-    );
-
-    const existing = await check.json();
-
-    if (existing.length > 0) {
-      const stats = await getStats();
-      return res.json({
-        success: false,
-        duplicate: true,
-        ...stats
-      });
-    }
-
-    // insert new contact
-    await fetch(`${SUPABASE_URL}/rest/v1/contacts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`
-      },
-      body: JSON.stringify({ number })
-    });
-
-    const stats = await getStats();
-
-    res.json({
-      success: true,
-      ...stats
-    });
-
+    await Contact.create({ number });
+    res.json({ success: true });
   } catch (err) {
-    console.log(err);
-    res.json({ success: false });
+    res.json({ success: false, message: "Number already submitted" });
   }
 });
 
-// ---------- GET STATS ----------
-async function getStats() {
-  const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/contacts?select=count`,
-    {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        Prefer: "count=exact"
-      }
-    }
-  );
-
-  const total = r.headers.get("content-range").split("/")[1];
-
-  return {
-    count: Number(total),
-    remaining: TARGET - Number(total)
-  };
-}
-
+// ---------- Get stats ----------
 app.get("/stats", async (req, res) => {
-  res.json(await getStats());
+  await connectDB();
+
+  const count = await Contact.countDocuments();
+  res.json({
+    target: TARGET,
+    contacts: count,
+    remaining: TARGET - count
+  });
 });
 
-app.listen(3000, () => console.log("Server running"));
+// ---------- Start server ----------
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -2,15 +2,25 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact Collector</title>
+<title>VCF Collector</title>
 
 <style>
-body {background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding:30px}
-input {width:90%;padding:12px;border-radius:10px;border:none;margin:8px}
-button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor:pointer}
-.save {background:#ff4081;color:white}
-.download {background:#00e676;color:black;margin-top:15px}
-.card {background:#1a1a1a;padding:20px;border-radius:15px;margin-top:20px}
+body {background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding:30px;}
+input {width:90%;padding:12px;border-radius:10px;border:none;margin:8px;}
+button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor:pointer;}
+.save {background:#ff4081;color:white;}
+.download {background:#00e676;color:black;margin-top:15px;}
+.card {background:#1a1a1a;padding:20px;border-radius:15px;margin-top:20px;display:inline-block;}
+#circle-container {position:relative;width:150px;height:150px;margin:20px auto;}
+#circle-bg, #circle-fill {stroke-width:15;fill:none;transition: stroke-dashoffset 1s ease, stroke 1s ease;}
+#circle-bg {stroke:#444;}
+#circle-fill {transform:rotate(-90deg);transform-origin:center;}
+#circle-text {position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-weight:bold;font-size:20px;}
+#circle-title {margin-top:10px;font-size:18px;opacity:0.8;}
+#circle-powered {opacity:0.6;margin-top:5px;font-size:14px;}
+#message {margin-top:15px;font-size:16px;color:#00e676;opacity:0;transition: opacity 0.5s;}
+#group-link {margin-top:10px;font-size:16px;display:none;opacity:0;transform:translateY(-20px);transition: all 0.8s ease;}
+#group-link.show {display:block;opacity:1;transform:translateY(0);}
 </style>
 </head>
 
@@ -21,37 +31,110 @@ button {padding:12px 20px;border-radius:10px;border:none;font-weight:bold;cursor
 <input id="name" placeholder="Your name">
 <input id="phone" placeholder="Phone number">
 <br>
-<button class="save" onclick="save()">Submit</button>
+<button class="save" onclick="submitContact()">Submit</button>
 
 <div id="box"></div>
 
+<div id="circle-container" class="card">
+  <svg width="150" height="150">
+    <circle id="circle-bg" cx="75" cy="75" r="60"/>
+    <circle id="circle-fill" cx="75" cy="75" r="60" stroke-dasharray="377" stroke-dashoffset="377"/>
+  </svg>
+  <div id="circle-text">0 / 500</div>
+  <div id="circle-title">VCF Collector</div>
+  <div id="circle-powered">Powered by 𝑷𝑹𝑬𝑪𝑰𝑶𝑼𝑺 x♡</div>
+</div>
+
+<div id="message">Contacts submitted successfully!</div>
+<div id="group-link">
+  <a href="https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg?mode=gi_t" target="_blank">
+    Join our WhatsApp group to get your VCF
+  </a>
+</div>
+
 <script>
-async function save() {
+const TARGET = 500;
+
+// color red → yellow → green
+function getColor(percent) {
+  if(percent < 50) {
+    const g = Math.floor((percent / 50) * 255);
+    return `rgb(255, ${g}, 0)`;
+  } else {
+    const r = Math.floor(255 - ((percent - 50) / 50) * 255);
+    return `rgb(${r}, 255, 0)`;
+  }
+}
+
+// fetch current count
+async function fetchCount() {
+  const res = await fetch("/save", { 
+    method: "POST", 
+    headers: {"Content-Type":"application/json"}, 
+    body: JSON.stringify({name:"",phone:""}) 
+  });
+  const data = await res.json();
+  updateUI(data);
+}
+
+// submit contact
+async function submitContact() {
   const name = document.getElementById("name").value;
   const phone = document.getElementById("phone").value;
+
+  if (!name || !phone) return alert("Fill all fields");
 
   const res = await fetch("/save", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body:JSON.stringify({name, phone})
   });
-
   const data = await res.json();
-
   if(data.error) return alert(data.error);
 
+  document.getElementById("name").value = "";
+  document.getElementById("phone").value = "";
+
+  // show success message
+  const msg = document.getElementById("message");
+  msg.style.opacity = 1;
+
+  // show animated group link after 3 seconds
+  const link = document.getElementById("group-link");
+  link.classList.remove("show"); // reset animation
+  setTimeout(() => {
+    link.classList.add("show");
+  }, 3000);
+
+  updateUI(data);
+}
+
+// update circle and counters
+function updateUI(data) {
+  const remaining = data.target - data.count;
+
   let html = `
-    <div class="card">
-      <p>${data.count} / ${data.target} contacts collected</p>
+    <p>Target: ${data.target}</p>
+    <p>Contacts: ${data.count}</p>
+    <p>Remaining: ${remaining > 0 ? remaining : 0}</p>
   `;
 
   if(data.ready){
     html += `<a href="/download"><button class="download">Download Contacts</button></a>`;
   }
 
-  html += "</div>";
   document.getElementById("box").innerHTML = html;
+
+  const percent = Math.min(100, (data.count / data.target) * 100);
+  const dashoffset = 377 - (377 * percent / 100);
+  const circle = document.getElementById("circle-fill");
+  circle.style.strokeDashoffset = dashoffset;
+  circle.style.stroke = getColor(percent);
+  document.getElementById("circle-text").innerText = `${data.count} / ${data.target}`;
 }
+
+setInterval(fetchCount, 5000);
+fetchCount();
 </script>
 
 </body>

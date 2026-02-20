@@ -10,7 +10,7 @@ app.use(express.static("public")); // serve HTML page
 const TARGET = 500;
 const DATA_FILE = path.join(process.cwd(), "contacts.json");
 
-// Helper: read contacts
+// Read contacts
 function readContacts() {
   try {
     const data = fs.readFileSync(DATA_FILE, "utf-8");
@@ -20,12 +20,12 @@ function readContacts() {
   }
 }
 
-// Helper: save contacts
+// Save contacts
 function saveContacts(list) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
 }
 
-// Save contact
+// Submit contact
 app.post("/save", (req, res) => {
   const { name, phone } = req.body;
   if(!name || !phone) return res.json({ error: "Fill all fields" });
@@ -38,8 +38,13 @@ app.post("/save", (req, res) => {
   }
 
   const ready = contacts.length >= TARGET;
+  res.json({ target: TARGET, count: contacts.length, ready });
+});
 
-  // Always return target & count to frontend
+// Get count only (for auto-refresh without adding fake contacts)
+app.get("/count", (req, res) => {
+  const contacts = readContacts();
+  const ready = contacts.length >= TARGET;
   res.json({ target: TARGET, count: contacts.length, ready });
 });
 

@@ -39,7 +39,7 @@ app.post("/save", (req, res) => {
 
   const ready = contacts.length >= TARGET;
 
-  // ✅ Always return target & count to frontend
+  // Always return target & count to frontend
   res.json({ target: TARGET, count: contacts.length, ready });
 });
 

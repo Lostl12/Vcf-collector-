@@ -1,37 +1,13 @@
-import mongoose from "mongoose";
+let contacts = global.contacts || [];
+global.contacts = contacts;
 
-const MONGO_URI = "mongodb+srv://ebukaanyemachill9_db_mer:joy5RIFZWLFC35WL@cluster0.bcrir9p.mongodb.net/vcfcollector?retryWrites=true&w=majority";
+const TARGET = 500;
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
-
-async function connectDB() {
-  if (cached.conn) return cached.conn;
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true }).then(m => m);
-  }
-  cached.conn = await cached.promise;
-  return cached.conn;
-}
-
-const ContactSchema = new mongoose.Schema({
-  number: String
-});
-
-const Contact = mongoose.models.Contact || mongoose.model("Contact", ContactSchema);
-
-export default async function handler(req, res) {
-  await connectDB();
-
-  const count = await Contact.countDocuments();
-  const target = 500;
+export default function handler(req, res) {
+  const total = contacts.length;
 
   res.json({
-    target,
-    contacts: count,
-    remaining: target - count
+    contacts: total,
+    remaining: Math.max(TARGET - total, 0)
   });
 }

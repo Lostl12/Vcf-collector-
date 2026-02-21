@@ -1,13 +1,13 @@
 let contacts = global.contacts || [];
 global.contacts = contacts;
 
-const TARGET = 500;
-
 export default function handler(req, res) {
-  const total = contacts.length;
+  const target = 500;
+  const count = contacts.length;
+  const remaining = target - count;
 
   res.json({
-    contacts: total,
-    remaining: Math.max(TARGET - total, 0)
+    contacts: count,
+    remaining: remaining > 0 ? remaining : 0
   });
 }

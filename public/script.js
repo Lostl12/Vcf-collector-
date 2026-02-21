@@ -1,48 +1,37 @@
-const TARGET = 500;
-
-async function getStats() {
+async function loadStats() {
   const res = await fetch("/api/stats");
-  return await res.json();
-}
+  const data = await res.json();
 
-async function updateUI() {
-  const stats = await getStats();
-  document.getElementById("target").innerText = stats.target;
-  document.getElementById("count").innerText = stats.contacts;
-  document.getElementById("remaining").innerText = stats.remaining;
+  document.getElementById("contacts").innerText = data.contacts;
+  document.getElementById("remaining").innerText = data.remaining;
 
-  const percent = (stats.contacts / stats.target) * 100;
-  document.getElementById("progress").style.background =
-    `conic-gradient(#4caf50 0% ${percent}%, transparent ${percent}% 100%)`;
+  const percent = (data.contacts / 500) * 100;
+  document.getElementById("bar").style.width = percent + "%";
 
-  if (stats.contacts >= stats.target) {
+  if (data.remaining === 0) {
     document.getElementById("downloadBtn").style.display = "block";
   }
 }
 
 async function submitContact() {
-  const number = document.getElementById("numberInput").value.trim();
-  if (!number) return alert("Enter number");
+  const name = document.getElementById("name").value;
+  const number = document.getElementById("number").value;
 
   const res = await fetch("/api/save", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ number })
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ name, number })
   });
 
   const data = await res.json();
 
   if (data.success) {
-    alert("Contact submitted successfully");
-    setTimeout(() => {
-      window.location.href = "https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg";
-    }, 1500);
+    loadStats();
+    document.getElementById("name").value = "";
+    document.getElementById("number").value = "";
   } else {
-    alert(data.message || "Failed to submit contact");
+    alert(data.message);
   }
-
-  updateUI();
 }
 
-// update counts on page load
-updateUI();
+loadStats();

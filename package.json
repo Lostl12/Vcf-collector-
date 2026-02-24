@@ -1,13 +1,9 @@
 {
-  "name": "vcf-collector",
-  "version": "1.0.0",
+  "name": "vcf-saver",
   "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "fs-extra": "^11.2.0"
+    "mongoose": "^8.0.0"
   }
 }

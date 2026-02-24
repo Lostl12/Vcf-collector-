@@ -1,49 +1,40 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const bodyParser = require("body-parser");
+import express from "express"
+import mongoose from "mongoose"
+import cors from "cors"
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const CONTACTS_FILE = path.join(__dirname, "contacts.json");
-const TARGET = 500;
-const GROUP_LINK = "https://chat.whatsapp.com/EKu6hh1WG7Y3OdCy6IZrwg?mode=gi_t";
+const app = express()
+app.use(cors())
+app.use(express.json())
+app.use(express.static("public"))
 
-// Middleware
-app.use(bodyParser.json());
-app.use(express.static("public"));
+mongoose.connect(process.env.MONGO_URI)
 
-// Helper functions
-function readContacts() {
-  if (!fs.existsSync(CONTACTS_FILE)) return [];
-  const data = fs.readFileSync(CONTACTS_FILE, "utf8");
-  return JSON.parse(data || "[]");
-}
+const ContactSchema = new mongoose.Schema({
+  number: { type: String, unique: true }
+})
 
-function saveContacts(list) {
-  fs.writeFileSync(CONTACTS_FILE, JSON.stringify(list, null, 2));
-}
+const Contact = mongoose.model("Contact", ContactSchema)
 
-// Routes
-app.post("/api/save", (req, res) => {
-  const { name, number } = req.body;
-  if (!name || !number) return res.json({ status: "error" });
+app.post("/save", async (req, res) => {
+  try {
+    const { number } = req.body
+    if (!number) return res.json({ msg: "Enter number" })
 
-  const contacts = readContacts();
-  const exists = contacts.find(c => c.number === number);
+    const exists = await Contact.findOne({ number })
+    if (exists) return res.json({ msg: "Duplicate" })
 
-  if (exists) return res.json({ status: "duplicate" });
+    await Contact.create({ number })
+    const count = await Contact.countDocuments()
+    res.json({ msg: "Saved", count })
 
-  contacts.push({ name, number, date: new Date().toISOString() });
-  saveContacts(contacts);
+  } catch {
+    res.json({ msg: "Error" })
+  }
+})
 
-  res.json({ status: "ok", count: contacts.length });
-});
+app.get("/count", async (req, res) => {
+  const count = await Contact.countDocuments()
+  res.json({ count })
+})
 
-app.get("/api/stats", (req, res) => {
-  const contacts = readContacts();
-  res.json({ count: contacts.length, remaining: Math.max(TARGET - contacts.length, 0) });
-});
-
-// Start server
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(3000, () => console.log("Server running"))

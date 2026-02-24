@@ -1,40 +1,69 @@
-import express from "express"
-import mongoose from "mongoose"
-import cors from "cors"
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
 
-const app = express()
-app.use(cors())
-app.use(express.json())
-app.use(express.static("public"))
+dotenv.config();
 
-mongoose.connect(process.env.MONGO_URI)
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public"));
 
-const ContactSchema = new mongoose.Schema({
-  number: { type: String, unique: true }
+/* ================= DB CONNECT ================= */
+
+mongoose.connect(process.env.MONGO_URI, {
+  dbName: "vcfcollector"
 })
+.then(() => console.log("MongoDB connected"))
+.catch(err => console.log(err));
 
-const Contact = mongoose.model("Contact", ContactSchema)
+/* ================= MODEL ================= */
 
+const contactSchema = new mongoose.Schema({
+  number: { type: String, unique: true }
+});
+
+const Contact = mongoose.model("contacts", contactSchema);
+
+/* ================= ROUTES ================= */
+
+// Save contact
 app.post("/save", async (req, res) => {
   try {
-    const { number } = req.body
-    if (!number) return res.json({ msg: "Enter number" })
+    const { number } = req.body;
 
-    const exists = await Contact.findOne({ number })
-    if (exists) return res.json({ msg: "Duplicate" })
+    if (!number) {
+      return res.json({ status: "error", msg: "No number" });
+    }
 
-    await Contact.create({ number })
-    const count = await Contact.countDocuments()
-    res.json({ msg: "Saved", count })
+    const exists = await Contact.findOne({ number });
 
-  } catch {
-    res.json({ msg: "Error" })
+    if (exists) {
+      return res.json({ status: "duplicate" });
+    }
+
+    await Contact.create({ number });
+
+    const count = await Contact.countDocuments();
+
+    res.json({
+      status: "saved",
+      count
+    });
+
+  } catch (err) {
+    res.json({ status: "error" });
   }
-})
+});
 
-app.get("/count", async (req, res) => {
-  const count = await Contact.countDocuments()
-  res.json({ count })
-})
+// Stats
+app.get("/stats", async (req, res) => {
+  const count = await Contact.countDocuments();
+  res.json({ count });
+});
 
-app.listen(3000, () => console.log("Server running"))
+/* ================= START ================= */
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running"));

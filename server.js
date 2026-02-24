@@ -17,8 +17,10 @@ mongoose.connect(process.env.MONGO_URI, { dbName: "vcfcollector" })
 
 // Schema & model
 const ContactSchema = new mongoose.Schema({
-  number: { type: String, unique: true }
+  name: { type: String, required: true },
+  number: { type: String, unique: true, required: true }
 });
+
 const Contact = mongoose.model("contacts", ContactSchema);
 
 // Routes
@@ -33,13 +35,13 @@ app.get("/count", async (req,res)=>{
 
 app.post("/save", async (req,res)=>{
   try {
-    const { number } = req.body;
-    if(!number) return res.json({ status:"error", message:"No number" });
+    const { name, number } = req.body;
+    if(!name || !number) return res.json({ status:"error", message:"Name and number required" });
 
     const exists = await Contact.findOne({ number });
     if(exists) return res.json({ status:"duplicate" });
 
-    await Contact.create({ number });
+    await Contact.create({ name, number });
     res.json({ status:"saved" });
 
   } catch(err){
